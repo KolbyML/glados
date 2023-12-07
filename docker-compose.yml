@@ -22,7 +22,7 @@ services:
       RUST_LOG: info
     command: "--web3-transport http --web3-http-address http://0.0.0.0:8545/ --no-upnp --mb 0 --bootnodes default"
     network_mode: host
-    exposed_ports:
+    expose:
       - "8545"    
     restart: always
 
