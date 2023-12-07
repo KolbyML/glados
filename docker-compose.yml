@@ -17,10 +17,10 @@ services:
 
   trin:
     hostname: trin
-    image: portalnetwork/trin:latest
+    image: kolbyml/trin:latest
     environment:
       RUST_LOG: info
-    command: "--web3-transport http --web3-http-address http://0.0.0.0:8545/ --external-address 0.0.0.0:9009 --mb 0 --bootnodes default"
+    command: "--web3-transport http --web3-http-address http://0.0.0.0:8545/ --external-address 0.0.0.0:9009 --no-upnp --mb 0 --bootnodes default"
     ports:
       - "8545:8545"
       - "9009:9009"
