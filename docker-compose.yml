@@ -9,10 +9,7 @@ services:
       POSTGRES_DB: glados
     volumes:
       - ${GLADOS_POSTGRES_DATA_DIR?Glados Postgres Data Directory Required}:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
-    networks:
-      - glados-net
+    network_mode: host
     restart: always
 
   trin:
@@ -21,11 +18,7 @@ services:
     environment:
       RUST_LOG: info
     command: "--web3-transport http --web3-http-address http://0.0.0.0:8545/ --no-upnp --mb 0 --bootnodes default"
-    ports:
-      - "8545:8545"
-      - "9009:9009"
-    networks:
-      - glados-net
+    network_mode: host
     restart: always
 
   glados_audit:
@@ -36,8 +29,7 @@ services:
     depends_on:
       - glados_postgres
       - trin
-    networks:
-      - glados-net
+    network_mode: host
     restart: always
 
   glados_monitor:
@@ -48,8 +40,7 @@ services:
     depends_on:
       - glados_audit
       - glados_postgres
-    networks:
-      - glados-net
+    network_mode: host
     restart: always
 
   glados_web:
@@ -60,10 +51,7 @@ services:
     depends_on:
       - glados_monitor
       - glados_postgres
-    ports:
-      - "3001:3001"
-    networks:
-      - glados-net
+    network_mode: host
     restart: always
 
   glados_cartographer:
@@ -75,10 +63,5 @@ services:
       - glados_web
       - glados_postgres
       - trin
-    networks:
-      - glados-net
+    network_mode: host
     restart: always
-
-networks:
-  glados-net:
-    driver: bridge
