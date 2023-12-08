@@ -21,7 +21,11 @@ services:
     environment:
       RUST_LOG: info
     command: "--web3-transport http --web3-http-address http://0.0.0.0:8545/ --no-upnp --mb 0 --bootnodes default"
-    network_mode: "host"
+    ports:
+      - "8545:8545"
+      - "9009:9009/udp"
+    networks:
+      - glados-net
     restart: always
 
   glados_audit:
