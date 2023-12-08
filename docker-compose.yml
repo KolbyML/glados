@@ -78,5 +78,5 @@ services:
 networks:
   glados-net:
     driver: bridge
-extra_hosts:
-    - "host.docker.internal:host-gateway"
+    extra_hosts:
+        - "host.docker.internal:host-gateway"
