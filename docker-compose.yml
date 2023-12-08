@@ -35,6 +35,8 @@ services:
     networks:
       - glados-net
     restart: always
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   glados_monitor:
     command: "--database-url postgres://postgres:${GLADOS_POSTGRES_PASSWORD}@glados_postgres:5432/glados follow-head --provider-url https://mainnet.infura.io/v3/${INFURA_PROJECT_ID?Infura Project ID Required}"
@@ -74,9 +76,9 @@ services:
     networks:
       - glados-net
     restart: always
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
 networks:
   glados-net:
     driver: bridge
-    extra_hosts:
-        - "host.docker.internal:host-gateway"
