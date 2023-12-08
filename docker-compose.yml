@@ -21,15 +21,11 @@ services:
     environment:
       RUST_LOG: info
     command: "--web3-transport http --web3-http-address http://0.0.0.0:8545/ --no-upnp --mb 0 --bootnodes default"
-    ports:
-      - "8545:8545"
-      - "9009:9009/udp"
-    networks:
-      - glados-net
+    network_mode: "host"
     restart: always
 
   glados_audit:
-    command: "--database-url postgres://postgres:${GLADOS_POSTGRES_PASSWORD}@glados_postgres:5432/glados --portal-client http://trin:8545 --concurrency 8 --latest-strategy-weight 2"
+    command: "--database-url postgres://postgres:${GLADOS_POSTGRES_PASSWORD}@glados_postgres:5432/glados --portal-client http://host.docker.internal:8545 --concurrency 8 --latest-strategy-weight 2"
     image: portalnetwork/glados-audit:latest
     environment:
       RUST_LOG: warn,glados_audit=info
@@ -67,7 +63,7 @@ services:
     restart: always
 
   glados_cartographer:
-    command: "--database-url postgres://postgres:${GLADOS_POSTGRES_PASSWORD}@glados_postgres:5432/glados --transport http --http-url http://trin:8545 --concurrency 10"
+    command: "--database-url postgres://postgres:${GLADOS_POSTGRES_PASSWORD}@glados_postgres:5432/glados --transport http --http-url http://host.docker.internal:8545 --concurrency 10"
     image: portalnetwork/glados-cartographer:latest
     environment:
       RUST_LOG: warn,glados_cartographer=info
