@@ -3,9 +3,12 @@ use chrono::Utc;
 use entity::content::{self, SubProtocol};
 
 use ethportal_api::{
-    types::consensus::light_client::{
-        finality_update::LightClientFinalityUpdateCapella,
-        optimistic_update::LightClientOptimisticUpdateCapella,
+    types::{
+        consensus::light_client::{
+            finality_update::LightClientFinalityUpdateCapella,
+            optimistic_update::LightClientOptimisticUpdateCapella,
+        },
+        content_key::beacon::{LightClientFinalityUpdateKey, LightClientOptimisticUpdateKey},
     },
     utils::bytes::{hex_decode, hex_encode},
     BeaconContentKey, LightClientBootstrapKey, LightClientUpdatesByRangeKey, OverlayContentKey,
@@ -44,6 +47,12 @@ pub async fn follow_beacon_head(conn: DatabaseConnection, client: HttpClient) {
     store_lc_update_by_range(conn.clone())
         .await
         .expect("Failed to store initial LC update by range");
+    // store_lc_optimistic_update(conn.clone(), &client)
+    //     .await
+    //     .expect("Failed to store initial LC optimistic update");
+    store_lc_finality_update(conn.clone(), &client)
+        .await
+        .expect("Failed to store initial LC finality update");
 
     loop {
         debug!("Sleeping for {} seconds", POLL_PERIOD_SECONDS);
@@ -71,6 +80,10 @@ pub async fn follow_beacon_head(conn: DatabaseConnection, client: HttpClient) {
             if let Err(err) = store_lc_update_by_range(conn.clone()).await {
                 error!("Failed to store LC update by range: {err:?}");
             }
+
+            if let Err(err) = store_lc_optimistic_update(conn.clone(), &client).await {
+                error!("Failed to store LC optimistic update: {err:?}");
+            }
         }
     }
 }
@@ -94,7 +107,51 @@ async fn store_bootstrap_content_key(hash: &str, conn: DatabaseConnection) -> an
     Ok(())
 }
 
-/// Stores a LightClientUpdatesByRange content key for the current period if one doesnt already exist.
+async fn store_lc_optimistic_update(
+    conn: DatabaseConnection,
+    client: &HttpClient,
+) -> anyhow::Result<()> {
+    let content_key = get_lc_optimistic_update_key(&client).await?;
+    let content_key = BeaconContentKey::LightClientOptimisticUpdate(content_key);
+
+    match content::get_or_create(SubProtocol::Beacon, &content_key, Utc::now(), &conn).await {
+        Ok(_) => {
+            info!(
+                content.key = hex_encode(content_key.to_bytes()),
+                "Imported new beacon LightClientOptimisticUpdate content key",
+            );
+            Ok(())
+        }
+        Err(err) => Err(anyhow!(
+            "Failed to store LC optimistic update content key: {}",
+            err
+        )),
+    }
+}
+
+async fn store_lc_finality_update(
+    conn: DatabaseConnection,
+    client: &HttpClient,
+) -> anyhow::Result<()> {
+    let content_key = get_lc_finality_update_key(&client).await?;
+    let content_key = BeaconContentKey::LightClientFinalityUpdate(content_key);
+    Ok(())
+    // match content::get_or_create(SubProtocol::Beacon, &content_key, Utc::now(), &conn).await {
+    //     Ok(_) => {
+    //         debug!(
+    //             content.key = hex_encode(content_key.to_bytes()),
+    //             "Imported new beacon LightClientFinalityUpdate content key",
+    //         );
+    //         Ok(())
+    //     }
+    //     Err(err) => Err(anyhow!(
+    //         "Failed to store LC finality update content key: {}",
+    //         err
+    //     )),
+    // }
+}
+
+/// Stores a LightClientUpdatesByRange content key for the current period if one ed4doesnt already exist.
 pub async fn store_lc_update_by_range(conn: DatabaseConnection) -> anyhow::Result<()> {
     let expected_period = expected_current_period();
 
@@ -128,10 +185,10 @@ async fn get_current_beacon_block_root(client: &HttpClient) -> anyhow::Result<St
     Ok(latest_finalized_block_root)
 }
 
-/// Requests the latest `LightClientOptimisticUpdate` known by the server.
-pub async fn get_lc_optimistic_update(
+/// Requests the latest `LightClientOptimisticUpdateKey` known by the server.
+pub async fn get_lc_optimistic_update_key(
     client: &HttpClient,
-) -> anyhow::Result<LightClientOptimisticUpdateCapella> {
+) -> anyhow::Result<LightClientOptimisticUpdateKey> {
     let url = format!(
         "{}/eth/v1/beacon/light_client/optimistic_update",
         PANDA_OPS_BEACON
@@ -139,23 +196,37 @@ pub async fn get_lc_optimistic_update(
     let response = client.get(url).send().await?.text().await?;
     let update: Value = serde_json::from_str(&response)?;
 
-    let update: LightClientOptimisticUpdateCapella =
-        serde_json::from_value(update["data"].clone())?;
+    let signature_slot = update["data"]["signature_slot"]
+        .as_str()
+        .ok_or(anyhow!("signature_slot is not a string"))?;
+    let signature_slot: u64 = signature_slot
+        .parse()
+        .map_err(|_| anyhow!("Failed to parse signature_slot as u64"))?;
+
+    let update: LightClientOptimisticUpdateKey =
+        LightClientOptimisticUpdateKey::new(signature_slot);
 
     Ok(update)
 }
 
-/// Requests the latest `LightClientFinalityUpdate` known by the server.
-pub async fn get_lc_finality_update(
+/// Gets the latest `LightClientFinalityUpdateKey` known by the server.
+pub async fn get_lc_finality_update_key(
     client: &HttpClient,
-) -> anyhow::Result<LightClientFinalityUpdateCapella> {
+) -> anyhow::Result<LightClientFinalityUpdateKey> {
     let url = format!(
         "{}/eth/v1/beacon/light_client/finality_update",
         PANDA_OPS_BEACON
     );
     let response = client.get(url).send().await?.text().await?;
     let update: Value = serde_json::from_str(&response)?;
-    let update: LightClientFinalityUpdateCapella = serde_json::from_value(update["data"].clone())?;
+
+    let signature_slot = update["data"]["signature_slot"]
+        .as_str()
+        .ok_or(anyhow!("signature_slot is not a string"))?;
+    let signature_slot: u64 = signature_slot
+        .parse()
+        .map_err(|_| anyhow!("Failed to parse signature_slot as u64"))?;
+    let update: LightClientFinalityUpdateKey = LightClientFinalityUpdateKey::new(signature_slot);
     Ok(update)
 }
 

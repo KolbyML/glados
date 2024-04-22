@@ -212,6 +212,7 @@ async fn start_collation(
                 }
             }
         }
+        sleep(Duration::from_millis(250)).await;
     }
 }
 

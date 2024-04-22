@@ -12,7 +12,7 @@ use tokio::{
     sync::mpsc,
     time::{interval, Duration},
 };
-use tracing::{debug, error, warn};
+use tracing::{debug, error, info, warn};
 
 use entity::{
     content,
@@ -202,7 +202,7 @@ async fn add_to_queue(
 ) {
     let capacity = tx.capacity();
     let max_capacity = tx.max_capacity();
-    debug!(
+    info!(
         channel.availability = capacity,
         channel.size = max_capacity,
         "Adding items to audit task channel."
@@ -210,8 +210,12 @@ async fn add_to_queue(
     for content_key_model in items {
         let task = AuditTask {
             strategy: strategy.clone(),
-            content: content_key_model,
+            content: content_key_model.clone(),
         };
+        info!(
+            "Sending key of type {}",
+            content_key_model.protocol_id.as_text()
+        );
         if let Err(e) = tx.send(task).await {
             error!(audit.strategy=?strategy, err=?e, "Could not send key for audit, channel might be full or closed.")
         }
@@ -258,7 +262,6 @@ async fn select_random_content_for_audit(
                 continue;
             }
         };
-
         let keys_required = tx.capacity();
         if keys_required == 0 {
             continue;
@@ -283,7 +286,7 @@ async fn select_random_content_for_audit(
             }
         };
         let item_count = content_key_db_entries.len();
-        debug!(
+        info!(
             strategy = "random",
             item_count, "Adding content keys to the audit queue."
         );
